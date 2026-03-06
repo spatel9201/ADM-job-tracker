@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADM Job Time Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#f0ede6;font-family:'JetBrains Mono','SF Mono','Fira Code',monospace}
+    input:focus,select:focus{border-color:#1a1a1a!important;outline:none}
+    button:hover{opacity:0.85}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+    ::-webkit-scrollbar{height:6px}::-webkit-scrollbar-thumb{background:#ccc}
+    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:2000}
+    .modal-box{background:#fff;border:2px solid #1a1a1a;padding:32px;max-width:440px;width:90%;animation:slideIn 0.2s ease}
+    @media(max-width:768px){
+      .grid-3{grid-template-columns:1fr!important}
+      .grid-4{grid-template-columns:repeat(2,1fr)!important}
+      .grid-2{grid-template-columns:1fr!important}
+      .filters{flex-direction:column!important}
+      .header-row{flex-direction:column!important;align-items:flex-start!important}
+      .tabs{width:100%}.tabs button{flex:1;font-size:10px!important;padding:10px 8px!important}
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useMemo,useEffect,useCallback}=React;
+
+const SK="adm_job_tracker";
+const load=()=>{try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r)}catch(e){}return null};
+const save=(s)=>{try{localStorage.setItem(SK,JSON.stringify(s))}catch(e){}};
+
+const DEF_DEPTS=["Office","Engineering","Receiving","Assembly","Electrical","Welding","Quality Ctrl"];
+const DEF_JOBS=["7877","7999","8057","8105","8108","8110","8115","8147","8159","8213","8242","8265","8274","8275","8280","8285","8293","8298","8300","8304","8309","8377","8378"];
+const DEF_EMPLOYEES=["Amanda Bartlett","Aubree Jordan","Daniel Jordan","Daniel Lessard","James Dooley","Jean Collins","Jeremy Baouche","John Pardenkooper","Jose Figueroa","Karin Lessard","Keith Gunter","Logan Lewis","Marc Hoyland","Mark Jordan","Nikolai Norgaard","Rob Vyskocil","Scott Feary","Tom Corris"];
+const DEF_ENTRIES=[{"id":1,"date":"2026-01-11","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8275","hours":32.0,"task":"Engineering","notes":"PPE 01-11-2026"},{"id":2,"date":"2026-01-11","employee":"James Dooley","department":"Engineering","jobNumber":"8309","hours":14.0,"task":"Engineering","notes":"PPE 01-11-2026"},{"id":3,"date":"2026-01-11","employee":"James Dooley","department":"Engineering","jobNumber":"8057","hours":10.0,"task":"Engineering","notes":"PPE 01-11-2026"},{"id":4,"date":"2026-01-11","employee":"James Dooley","department":"Engineering","jobNumber":"8213","hours":11.0,"task":"Engineering","notes":"PPE 01-11-2026"},{"id":5,"date":"2026-01-11","employee":"James Dooley","department":"Engineering","jobNumber":"8159","hours":5.0,"task":"Engineering","notes":"PPE 01-11-2026"},{"id":6,"date":"2026-01-11","employee":"Jean Collins","department":"Receiving","jobNumber":"8105","hours":41.25,"task":"Receiving","notes":"PPE 01-11-2026"},{"id":7,"date":"2026-01-11","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8213","hours":37.84,"task":"Assembly","notes":"PPE 01-11-2026"},{"id":8,"date":"2026-01-11","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8105","hours":13.98,"task":"Assembly","notes":"PPE 01-11-2026"},{"id":9,"date":"2026-01-11","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8105","hours":15.0,"task":"Electrical","notes":"PPE 01-11-2026"},{"id":10,"date":"2026-01-11","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8057","hours":22.0,"task":"Electrical","notes":"PPE 01-11-2026"},{"id":11,"date":"2026-01-11","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8159","hours":3.0,"task":"Electrical","notes":"PPE 01-11-2026"},{"id":12,"date":"2026-01-11","employee":"Jose Figueroa","department":"Welding","jobNumber":"8300","hours":48.07,"task":"Welding","notes":"PPE 01-11-2026"},{"id":13,"date":"2026-01-11","employee":"Keith Gunter","department":"Assembly","jobNumber":"8105","hours":10.15,"task":"Assembly","notes":"PPE 01-11-2026"},{"id":14,"date":"2026-01-11","employee":"Keith Gunter","department":"Assembly","jobNumber":"8213","hours":36.09,"task":"Assembly","notes":"PPE 01-11-2026"},{"id":15,"date":"2026-01-11","employee":"Keith Gunter","department":"Assembly","jobNumber":"8110","hours":10.07,"task":"Assembly","notes":"PPE 01-11-2026"},{"id":16,"date":"2026-01-11","employee":"Logan Lewis","department":"Assembly","jobNumber":"8213","hours":32.8,"task":"Assembly","notes":"PPE 01-11-2026"},{"id":17,"date":"2026-01-11","employee":"Marc Hoyland","department":"Engineering","jobNumber":"7877","hours":37.0,"task":"Engineering","notes":"PPE 01-11-2026"},{"id":18,"date":"2026-01-11","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8275","hours":3.0,"task":"Engineering","notes":"PPE 01-11-2026"},{"id":19,"date":"2026-01-11","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8105","hours":20.35,"task":"Inspection","notes":"PPE 01-11-2026"},{"id":20,"date":"2026-01-11","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8213","hours":36.53,"task":"Inspection","notes":"PPE 01-11-2026"},{"id":21,"date":"2026-01-11","employee":"Nikolai Norgaard","department":"Welding","jobNumber":"8105","hours":45.45,"task":"Welding","notes":"PPE 01-11-2026"},{"id":22,"date":"2026-01-11","employee":"Scott Feary","department":"Welding","jobNumber":"8159","hours":19.58,"task":"Welding","notes":"PPE 01-11-2026"},{"id":23,"date":"2026-01-11","employee":"Scott Feary","department":"Welding","jobNumber":"8105","hours":34.83,"task":"Welding","notes":"PPE 01-11-2026"},{"id":24,"date":"2026-01-11","employee":"Tom Corris","department":"Assembly","jobNumber":"8213","hours":48.97,"task":"Assembly","notes":"PPE 01-11-2026"},{"id":25,"date":"2026-01-25","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8105","hours":17.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":26,"date":"2026-01-25","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8110","hours":39.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":27,"date":"2026-01-25","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8280","hours":8.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":28,"date":"2026-01-25","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8275","hours":21.5,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":29,"date":"2026-01-25","employee":"James Dooley","department":"Engineering","jobNumber":"8213","hours":34.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":30,"date":"2026-01-25","employee":"James Dooley","department":"Engineering","jobNumber":"8304","hours":3.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":31,"date":"2026-01-25","employee":"James Dooley","department":"Engineering","jobNumber":"8057","hours":6.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":32,"date":"2026-01-25","employee":"James Dooley","department":"Engineering","jobNumber":"8309","hours":36.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":33,"date":"2026-01-25","employee":"James Dooley","department":"Engineering","jobNumber":"8159","hours":1.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":34,"date":"2026-01-25","employee":"Jean Collins","department":"Receiving","jobNumber":"8105","hours":74.88,"task":"Receiving","notes":"PPE 01-25-2026"},{"id":35,"date":"2026-01-25","employee":"Jean Collins","department":"Receiving","jobNumber":"8108","hours":8.1,"task":"Receiving","notes":"PPE 01-25-2026"},{"id":36,"date":"2026-01-25","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8213","hours":29.1,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":37,"date":"2026-01-25","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8105","hours":27.87,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":38,"date":"2026-01-25","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8115","hours":27.84,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":39,"date":"2026-01-25","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8105","hours":33.0,"task":"Electrical","notes":"PPE 01-25-2026"},{"id":40,"date":"2026-01-25","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8057","hours":39.0,"task":"Electrical","notes":"PPE 01-25-2026"},{"id":41,"date":"2026-01-25","employee":"Jose Figueroa","department":"Welding","jobNumber":"8300","hours":25.87,"task":"Welding","notes":"PPE 01-25-2026"},{"id":42,"date":"2026-01-25","employee":"Jose Figueroa","department":"Welding","jobNumber":"8147","hours":50.07,"task":"Welding","notes":"PPE 01-25-2026"},{"id":43,"date":"2026-01-25","employee":"Jose Figueroa","department":"Welding","jobNumber":"8110","hours":15.97,"task":"Welding","notes":"PPE 01-25-2026"},{"id":44,"date":"2026-01-25","employee":"Jose Figueroa","department":"Welding","jobNumber":"8105","hours":19.97,"task":"Welding","notes":"PPE 01-25-2026"},{"id":45,"date":"2026-01-25","employee":"Keith Gunter","department":"Assembly","jobNumber":"8213","hours":20.16,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":46,"date":"2026-01-25","employee":"Keith Gunter","department":"Assembly","jobNumber":"8293","hours":15.05,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":47,"date":"2026-01-25","employee":"Keith Gunter","department":"Assembly","jobNumber":"8105","hours":77.43,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":48,"date":"2026-01-25","employee":"Logan Lewis","department":"Assembly","jobNumber":"8213","hours":15.92,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":49,"date":"2026-01-25","employee":"Logan Lewis","department":"Assembly","jobNumber":"8110","hours":7.93,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":50,"date":"2026-01-25","employee":"Logan Lewis","department":"Assembly","jobNumber":"8105","hours":52.52,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":51,"date":"2026-01-25","employee":"Logan Lewis","department":"Assembly","jobNumber":"8300","hours":8.05,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":52,"date":"2026-01-25","employee":"Logan Lewis","department":"Assembly","jobNumber":"8115","hours":8.47,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":53,"date":"2026-01-25","employee":"Marc Hoyland","department":"Engineering","jobNumber":"7877","hours":13.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":54,"date":"2026-01-25","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8275","hours":2.0,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":55,"date":"2026-01-25","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8285","hours":64.5,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":56,"date":"2026-01-25","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8298","hours":0.5,"task":"Engineering","notes":"PPE 01-25-2026"},{"id":57,"date":"2026-01-25","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8213","hours":30.92,"task":"Inspection","notes":"PPE 01-25-2026"},{"id":58,"date":"2026-01-25","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8105","hours":88.44,"task":"Inspection","notes":"PPE 01-25-2026"},{"id":59,"date":"2026-01-25","employee":"Nikolai Norgaard","department":"Welding","jobNumber":"8115","hours":52.07,"task":"Welding","notes":"PPE 01-25-2026"},{"id":60,"date":"2026-01-25","employee":"Nikolai Norgaard","department":"Welding","jobNumber":"8105","hours":51.67,"task":"Welding","notes":"PPE 01-25-2026"},{"id":61,"date":"2026-01-25","employee":"Scott Feary","department":"Welding","jobNumber":"8105","hours":75.81,"task":"Welding","notes":"PPE 01-25-2026"},{"id":62,"date":"2026-01-25","employee":"Scott Feary","department":"Welding","jobNumber":"8242","hours":18.01,"task":"Welding","notes":"PPE 01-25-2026"},{"id":63,"date":"2026-01-25","employee":"Scott Feary","department":"Welding","jobNumber":"8159","hours":6.0,"task":"Welding","notes":"PPE 01-25-2026"},{"id":64,"date":"2026-01-25","employee":"Scott Feary","department":"Welding","jobNumber":"0000","hours":8.0,"task":"Vacation","notes":"PPE 01-25-2026"},{"id":65,"date":"2026-01-25","employee":"Tom Corris","department":"Assembly","jobNumber":"8213","hours":19.87,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":66,"date":"2026-01-25","employee":"Tom Corris","department":"Assembly","jobNumber":"8105","hours":47.39,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":67,"date":"2026-01-25","employee":"Tom Corris","department":"Assembly","jobNumber":"8304","hours":9.93,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":68,"date":"2026-01-25","employee":"Tom Corris","department":"Assembly","jobNumber":"8147","hours":9.9,"task":"Assembly","notes":"PPE 01-25-2026"},{"id":69,"date":"2026-01-25","employee":"Tom Corris","department":"Assembly","jobNumber":"0000","hours":8.0,"task":"Sick","notes":"PPE 01-25-2026"},{"id":70,"date":"2026-02-08","employee":"Amanda Bartlett","department":"Office","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":71,"date":"2026-02-08","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8275","hours":32.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":72,"date":"2026-02-08","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8280","hours":16.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":73,"date":"2026-02-08","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8285","hours":24.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":74,"date":"2026-02-08","employee":"Daniel Lessard","department":"Engineering","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":75,"date":"2026-02-08","employee":"Daniel Jordan","department":"Office","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":76,"date":"2026-02-08","employee":"James Dooley","department":"Engineering","jobNumber":"8309","hours":42.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":77,"date":"2026-02-08","employee":"James Dooley","department":"Engineering","jobNumber":"8159","hours":10.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":78,"date":"2026-02-08","employee":"James Dooley","department":"Engineering","jobNumber":"8304","hours":3.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":79,"date":"2026-02-08","employee":"James Dooley","department":"Engineering","jobNumber":"8300","hours":8.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":80,"date":"2026-02-08","employee":"James Dooley","department":"Engineering","jobNumber":"8057","hours":7.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":81,"date":"2026-02-08","employee":"James Dooley","department":"Engineering","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":82,"date":"2026-02-08","employee":"Jean Collins","department":"Receiving","jobNumber":"8105","hours":65.05,"task":"Receiving","notes":"PPE 02-08-2026"},{"id":83,"date":"2026-02-08","employee":"Jean Collins","department":"Receiving","jobNumber":"0000","hours":8.0,"task":"Sick","notes":"PPE 02-08-2026"},{"id":84,"date":"2026-02-08","employee":"Jean Collins","department":"Receiving","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":85,"date":"2026-02-08","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8105","hours":45.69,"task":"Assembly","notes":"PPE 02-08-2026"},{"id":86,"date":"2026-02-08","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8115","hours":27.23,"task":"Assembly","notes":"PPE 02-08-2026"},{"id":87,"date":"2026-02-08","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":88,"date":"2026-02-08","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8105","hours":54.0,"task":"Electrical","notes":"PPE 02-08-2026"},{"id":89,"date":"2026-02-08","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8057","hours":8.0,"task":"Electrical","notes":"PPE 02-08-2026"},{"id":90,"date":"2026-02-08","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8147","hours":2.0,"task":"Electrical","notes":"PPE 02-08-2026"},{"id":91,"date":"2026-02-08","employee":"John Pardenkooper","department":"Electrical","jobNumber":"0000","hours":8.0,"task":"Vacation","notes":"PPE 02-08-2026"},{"id":92,"date":"2026-02-08","employee":"John Pardenkooper","department":"Electrical","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":93,"date":"2026-02-08","employee":"Jose Figueroa","department":"Welding","jobNumber":"8105","hours":39.82,"task":"Welding","notes":"PPE 02-08-2026"},{"id":94,"date":"2026-02-08","employee":"Jose Figueroa","department":"Welding","jobNumber":"8275","hours":38.89,"task":"Welding","notes":"PPE 02-08-2026"},{"id":95,"date":"2026-02-08","employee":"Jose Figueroa","department":"Welding","jobNumber":"0000","hours":8.0,"task":"Sick","notes":"PPE 02-08-2026"},{"id":96,"date":"2026-02-08","employee":"Jose Figueroa","department":"Welding","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":97,"date":"2026-02-08","employee":"Keith Gunter","department":"Assembly","jobNumber":"8105","hours":60.73,"task":"Assembly","notes":"PPE 02-08-2026"},{"id":98,"date":"2026-02-08","employee":"Keith Gunter","department":"Assembly","jobNumber":"8300","hours":30.26,"task":"Assembly","notes":"PPE 02-08-2026"},{"id":99,"date":"2026-02-08","employee":"Keith Gunter","department":"Assembly","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":100,"date":"2026-02-08","employee":"Logan Lewis","department":"Assembly","jobNumber":"8105","hours":32.08,"task":"Assembly","notes":"PPE 02-08-2026"},{"id":101,"date":"2026-02-08","employee":"Logan Lewis","department":"Assembly","jobNumber":"8275","hours":27.53,"task":"Assembly","notes":"PPE 02-08-2026"},{"id":102,"date":"2026-02-08","employee":"Logan Lewis","department":"Assembly","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":103,"date":"2026-02-08","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8285","hours":72.0,"task":"Engineering","notes":"PPE 02-08-2026"},{"id":104,"date":"2026-02-08","employee":"Marc Hoyland","department":"Engineering","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":105,"date":"2026-02-08","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8105","hours":57.75,"task":"Inspection","notes":"PPE 02-08-2026"},{"id":106,"date":"2026-02-08","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"0000","hours":32.0,"task":"Vacation","notes":"PPE 02-08-2026"},{"id":107,"date":"2026-02-08","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":108,"date":"2026-02-08","employee":"Nikolai Norgaard","department":"Welding","jobNumber":"8105","hours":55.92,"task":"Welding","notes":"PPE 02-08-2026"},{"id":109,"date":"2026-02-08","employee":"Nikolai Norgaard","department":"Welding","jobNumber":"8275","hours":27.84,"task":"Welding","notes":"PPE 02-08-2026"},{"id":110,"date":"2026-02-08","employee":"Nikolai Norgaard","department":"Welding","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":111,"date":"2026-02-08","employee":"Rob Vyskocil","department":"Office","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":112,"date":"2026-02-08","employee":"Scott Feary","department":"Welding","jobNumber":"8105","hours":47.82,"task":"Welding","notes":"PPE 02-08-2026"},{"id":113,"date":"2026-02-08","employee":"Scott Feary","department":"Welding","jobNumber":"8115","hours":40.13,"task":"Welding","notes":"PPE 02-08-2026"},{"id":114,"date":"2026-02-08","employee":"Scott Feary","department":"Welding","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":115,"date":"2026-02-08","employee":"Tom Corris","department":"Assembly","jobNumber":"8105","hours":79.1,"task":"Assembly","notes":"PPE 02-08-2026"},{"id":116,"date":"2026-02-08","employee":"Tom Corris","department":"Assembly","jobNumber":"0000","hours":8.0,"task":"Holiday","notes":"PPE 02-08-2026"},{"id":117,"date":"2026-02-22","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8275","hours":11.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":118,"date":"2026-02-22","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8105","hours":5.5,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":119,"date":"2026-02-22","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8110","hours":13.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":120,"date":"2026-02-22","employee":"Daniel Lessard","department":"Engineering","jobNumber":"8115","hours":5.5,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":121,"date":"2026-02-22","employee":"Daniel Lessard","department":"Engineering","jobNumber":"0000","hours":8.0,"task":"Vacation","notes":"PPE 02-22-2026"},{"id":122,"date":"2026-02-22","employee":"James Dooley","department":"Engineering","jobNumber":"7999","hours":6.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":123,"date":"2026-02-22","employee":"James Dooley","department":"Engineering","jobNumber":"8159","hours":13.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":124,"date":"2026-02-22","employee":"James Dooley","department":"Engineering","jobNumber":"8057","hours":12.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":125,"date":"2026-02-22","employee":"James Dooley","department":"Engineering","jobNumber":"8309","hours":37.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":126,"date":"2026-02-22","employee":"James Dooley","department":"Engineering","jobNumber":"8147","hours":3.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":127,"date":"2026-02-22","employee":"James Dooley","department":"Engineering","jobNumber":"8265","hours":4.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":128,"date":"2026-02-22","employee":"James Dooley","department":"Engineering","jobNumber":"8300","hours":5.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":129,"date":"2026-02-22","employee":"Jean Collins","department":"Receiving","jobNumber":"8105","hours":32.55,"task":"Receiving","notes":"PPE 02-22-2026"},{"id":130,"date":"2026-02-22","employee":"Jean Collins","department":"Receiving","jobNumber":"8115","hours":43.1,"task":"Receiving","notes":"PPE 02-22-2026"},{"id":131,"date":"2026-02-22","employee":"Jean Collins","department":"Receiving","jobNumber":"8378","hours":8.45,"task":"Receiving","notes":"PPE 02-22-2026"},{"id":132,"date":"2026-02-22","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8377","hours":9.98,"task":"Assembly","notes":"PPE 02-22-2026"},{"id":133,"date":"2026-02-22","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8274","hours":19.88,"task":"Assembly","notes":"PPE 02-22-2026"},{"id":134,"date":"2026-02-22","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8115","hours":39.37,"task":"Assembly","notes":"PPE 02-22-2026"},{"id":135,"date":"2026-02-22","employee":"Jeremy Baouche","department":"Assembly","jobNumber":"8105","hours":28.72,"task":"Assembly","notes":"PPE 02-22-2026"},{"id":136,"date":"2026-02-22","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8105","hours":51.0,"task":"Electrical","notes":"PPE 02-22-2026"},{"id":137,"date":"2026-02-22","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8057","hours":15.0,"task":"Electrical","notes":"PPE 02-22-2026"},{"id":138,"date":"2026-02-22","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8115","hours":11.0,"task":"Electrical","notes":"PPE 02-22-2026"},{"id":139,"date":"2026-02-22","employee":"John Pardenkooper","department":"Electrical","jobNumber":"8265","hours":4.0,"task":"Electrical","notes":"PPE 02-22-2026"},{"id":140,"date":"2026-02-22","employee":"Jose Figueroa","department":"Welding","jobNumber":"8115","hours":69.75,"task":"Welding","notes":"PPE 02-22-2026"},{"id":141,"date":"2026-02-22","employee":"Jose Figueroa","department":"Welding","jobNumber":"8105","hours":30.0,"task":"Welding","notes":"PPE 02-22-2026"},{"id":142,"date":"2026-02-22","employee":"Keith Gunter","department":"Assembly","jobNumber":"8105","hours":100.65,"task":"Assembly","notes":"PPE 02-22-2026"},{"id":143,"date":"2026-02-22","employee":"Logan Lewis","department":"Assembly","jobNumber":"8105","hours":73.84,"task":"Assembly","notes":"PPE 02-22-2026"},{"id":144,"date":"2026-02-22","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8115","hours":61.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":145,"date":"2026-02-22","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8274","hours":8.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":146,"date":"2026-02-22","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8377","hours":3.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":147,"date":"2026-02-22","employee":"Marc Hoyland","department":"Engineering","jobNumber":"8105","hours":8.0,"task":"Engineering","notes":"PPE 02-22-2026"},{"id":148,"date":"2026-02-22","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8105","hours":53.79,"task":"Inspection","notes":"PPE 02-22-2026"},{"id":149,"date":"2026-02-22","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8274","hours":10.35,"task":"Inspection","notes":"PPE 02-22-2026"},{"id":150,"date":"2026-02-22","employee":"Mark Jordan","department":"Quality Ctrl","jobNumber":"8115","hours":30.15,"task":"Inspection","notes":"PPE 02-22-2026"},{"id":151,"date":"2026-02-22","employee":"Nikolai Norgaard","department":"Welding","jobNumber":"8105","hours":96.16,"task":"Welding","notes":"PPE 02-22-2026"},{"id":152,"date":"2026-02-22","employee":"Scott Feary","department":"Welding","jobNumber":"8115","hours":30.03,"task":"Welding","notes":"PPE 02-22-2026"},{"id":153,"date":"2026-02-22","employee":"Scott Feary","department":"Welding","jobNumber":"8105","hours":66.24,"task":"Welding","notes":"PPE 02-22-2026"},{"id":154,"date":"2026-02-22","employee":"Tom Corris","department":"Assembly","jobNumber":"8115","hours":69.87,"task":"Assembly","notes":"PPE 02-22-2026"},{"id":155,"date":"2026-02-22","employee":"Tom Corris","department":"Assembly","jobNumber":"8057","hours":29.68,"task":"Assembly","notes":"PPE 02-22-2026"}];
+const TASKS=["Welding","Assembly","Engineering","Electrical","Receiving","Inspection","Machining","Shipping","Vacation","Sick","Holiday","General Office"];
+const NON_WORK_TASKS=["Vacation","Sick","Holiday"];
+const today=()=>new Date().toISOString().split("T")[0];
+
+// Generate bi-weekly pay period end dates (Saturdays) around current date
+const generatePPEs=()=>{
+  // ADM uses bi-weekly pay periods. Generate ~12 months of PPE end dates.
+  // Based on the spreadsheet, PPE 01-11-2026 was a Sunday. Let's use Saturdays as end dates.
+  const periods=[];
+  // Start from a known PPE and generate forward/backward
+  const base=new Date(2026,0,10); // Jan 10, 2026 (Saturday before the 01-11 PPE)
+  for(let i=-12;i<14;i++){
+    const d=new Date(base);
+    d.setDate(d.getDate()+(i*14));
+    periods.push(d.toISOString().split("T")[0]);
+  }
+  return periods;
+};
+
+function Modal({title,onClose,children}){
+  return <div className="modal-overlay" onClick={onClose}><div className="modal-box" onClick={e=>e.stopPropagation()}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+      <div style={{fontSize:14,fontWeight:700,letterSpacing:"0.05em"}}>{title}</div>
+      <button onClick={onClose} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",fontFamily:"inherit",color:"#999",lineHeight:1}}>&times;</button>
+    </div>{children}
+  </div></div>;
+}
+
+function App(){
+  const saved=useMemo(()=>load(),[]);
+  const[view,setView]=useState("entry");
+  const[entries,setEntries]=useState(saved?.entries||DEF_ENTRIES);
+  const[nextId,setNextId]=useState(saved?.nextId||156);
+  const[employees,setEmployees]=useState(saved?.employees||DEF_EMPLOYEES);
+  const[departments]=useState(saved?.departments||DEF_DEPTS);
+  const[jobs,setJobs]=useState(saved?.jobs||DEF_JOBS);
+  const[form,setForm]=useState({date:today(),employee:"",department:"",jobNumber:"",hours:"",task:"",notes:""});
+  const[editId,setEditId]=useState(null);
+  const[filterJob,setFilterJob]=useState("");
+  const[filterEmployee,setFilterEmployee]=useState("");
+  const[filterDept,setFilterDept]=useState("");
+  const[filterDateFrom,setFilterDateFrom]=useState("");
+  const[filterDateTo,setFilterDateTo]=useState("");
+  const[toast,setToast]=useState(null);
+  const[sortField,setSortField]=useState("date");
+  const[sortDir,setSortDir]=useState("desc");
+  const[rptFilterJob,setRptFilterJob]=useState("");
+  const[rptFilterEmployee,setRptFilterEmployee]=useState("");
+  const[rptFilterDateFrom,setRptFilterDateFrom]=useState("");
+  const[rptFilterDateTo,setRptFilterDateTo]=useState("");
+  const[showAddEmployee,setShowAddEmployee]=useState(false);
+  const[showAddJob,setShowAddJob]=useState(false);
+  const[showManage,setShowManage]=useState(false);
+  const[newEmployeeName,setNewEmployeeName]=useState("");
+  const[newJobNumber,setNewJobNumber]=useState("");
+  const[confirmDelete,setConfirmDelete]=useState(null);
+  const[customTask,setCustomTask]=useState(false);
+  // Pay period reconciliation
+  const[ppeDateFrom,setPpeDateFrom]=useState("");
+  const[ppeDateTo,setPpeDateTo]=useState("");
+  const[ppeOtThreshold,setPpeOtThreshold]=useState("40");
+
+  useEffect(()=>{save({entries,nextId,employees,departments,jobs})},[entries,nextId,employees,departments,jobs]);
+
+  const showToast=(msg)=>{setToast(msg);setTimeout(()=>setToast(null),2500)};
+
+  const handleSubmit=()=>{
+    if(!form.employee||!form.jobNumber||!form.hours||!form.date){showToast("Please fill in Date, Employee, Job #, and Hours");return}
+    if(editId!==null){
+      setEntries(p=>p.map(e=>e.id===editId?{...e,...form,hours:parseFloat(form.hours)}:e));
+      setEditId(null);showToast("Entry updated");setCustomTask(false);
+    }else{
+      setEntries(p=>[...p,{id:nextId,...form,hours:parseFloat(form.hours)}]);
+      setNextId(n=>n+1);showToast("Entry added");
+    }
+    setForm(f=>({date:f.date,employee:f.employee,department:f.department,jobNumber:"",hours:"",task:f.task,notes:""}));
+  };
+
+  const handleEdit=(entry)=>{
+    setForm({date:entry.date,employee:entry.employee,department:entry.department,jobNumber:entry.jobNumber,hours:entry.hours.toString(),task:entry.task,notes:entry.notes});
+    setEditId(entry.id);setView("entry");setCustomTask(entry.task&&!TASKS.includes(entry.task));
+    showToast("Editing entry — make changes and click Update");
+  };
+
+  const handleDelete=(id)=>{setEntries(p=>p.filter(e=>e.id!==id));setConfirmDelete(null);showToast("Entry deleted")};
+
+  const handleAddEmployee=()=>{
+    const name=newEmployeeName.trim();if(!name)return;
+    if(employees.some(e=>e.toLowerCase()===name.toLowerCase())){showToast("Employee already exists");return}
+    const u=[...employees,name].sort((a,b)=>a.localeCompare(b));
+    setEmployees(u);setForm(f=>({...f,employee:name}));
+    setNewEmployeeName("");setShowAddEmployee(false);showToast(`Added ${name}`);
+  };
+
+  const handleAddJob=()=>{
+    const num=newJobNumber.trim();if(!num)return;
+    if(jobs.includes(num)){showToast("Job # already exists");return}
+    const u=[...jobs,num].sort();setJobs(u);setForm(f=>({...f,jobNumber:num}));
+    setNewJobNumber("");setShowAddJob(false);showToast(`Added Job #${num}`);
+  };
+
+  const handleRemoveEmployee=(n)=>{setEmployees(p=>p.filter(e=>e!==n));showToast(`Removed ${n}`)};
+  const handleRemoveJob=(n)=>{setJobs(p=>p.filter(j=>j!==n));showToast(`Removed Job #${n}`)};
+
+  const exportCSV=(data,filename)=>{
+    const h=["Date","Employee","Department","Job #","Hours","Task","Notes"];
+    const rows=data.map(e=>[e.date,e.employee,e.department,e.jobNumber,e.hours,e.task,e.notes].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(","));
+    const csv=[h.join(","),...rows].join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);showToast("Exported to CSV");
+  };
+
+  const exportPayrollCSV=(data,filename)=>{
+    const h=["Employee","Department","Total Hours","Job Hours","Vacation","Sick","Holiday","Other Non-Work","Regular","Overtime","Check Figure"];
+    const rows=data.map(e=>[e.employee,e.department,e.totalHours.toFixed(2),e.jobHours.toFixed(2),e.vacation.toFixed(2),e.sick.toFixed(2),e.holiday.toFixed(2),e.otherNonWork.toFixed(2),e.regular.toFixed(2),e.overtime.toFixed(2),e.checkFig.toFixed(2)].map(v=>`"${v}"`).join(","));
+    const csv=[h.join(","),...rows].join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);showToast("Exported payroll CSV");
+  };
+
+  const applyFilters=useCallback((data,fJ,fE,fD,fF,fT)=>{
+    let r=[...data];
+    if(fJ)r=r.filter(e=>e.jobNumber.includes(fJ));
+    if(fE)r=r.filter(e=>e.employee===fE);
+    if(fD)r=r.filter(e=>e.department===fD);
+    if(fF)r=r.filter(e=>e.date>=fF);
+    if(fT)r=r.filter(e=>e.date<=fT);
+    return r;
+  },[]);
+
+  const filtered=useMemo(()=>{
+    let r=applyFilters(entries,filterJob,filterEmployee,filterDept,filterDateFrom,filterDateTo);
+    r.sort((a,b)=>{let aV=a[sortField],bV=b[sortField];if(sortField==="hours"){aV=Number(aV);bV=Number(bV)}if(aV<bV)return sortDir==="asc"?-1:1;if(aV>bV)return sortDir==="asc"?1:-1;return 0});
+    return r;
+  },[entries,filterJob,filterEmployee,filterDept,filterDateFrom,filterDateTo,sortField,sortDir,applyFilters]);
+
+  const rptFiltered=useMemo(()=>applyFilters(entries,rptFilterJob,rptFilterEmployee,"",rptFilterDateFrom,rptFilterDateTo),[entries,rptFilterJob,rptFilterEmployee,rptFilterDateFrom,rptFilterDateTo,applyFilters]);
+
+  // Pay period reconciliation data
+  const ppeData=useMemo(()=>{
+    if(!ppeDateFrom||!ppeDateTo)return[];
+    const threshold=parseFloat(ppeOtThreshold)||40;
+    const inRange=entries.filter(e=>e.date>=ppeDateFrom&&e.date<=ppeDateTo);
+    const map={};
+    inRange.forEach(e=>{
+      if(!map[e.employee])map[e.employee]={employee:e.employee,department:e.department,totalHours:0,jobHours:0,vacation:0,sick:0,holiday:0,otherNonWork:0};
+      map[e.employee].totalHours+=e.hours;
+      const taskLower=(e.task||"").toLowerCase();
+      if(taskLower==="vacation")map[e.employee].vacation+=e.hours;
+      else if(taskLower==="sick")map[e.employee].sick+=e.hours;
+      else if(taskLower==="holiday")map[e.employee].holiday+=e.hours;
+      else if(taskLower==="general office"||NON_WORK_TASKS.map(t=>t.toLowerCase()).includes(taskLower))map[e.employee].otherNonWork+=e.hours;
+      else map[e.employee].jobHours+=e.hours;
+    });
+    return Object.values(map).map(emp=>{
+      const nonWork=emp.vacation+emp.sick+emp.holiday;
+      const workHours=emp.totalHours-nonWork;
+      const regular=Math.min(workHours,threshold)+nonWork;
+      const overtime=Math.max(workHours-threshold,0);
+      return{...emp,regular:regular,overtime:overtime,checkFig:regular+overtime-emp.totalHours};
+    }).sort((a,b)=>a.employee.localeCompare(b.employee));
+  },[entries,ppeDateFrom,ppeDateTo,ppeOtThreshold]);
+
+  const ppeTotals=useMemo(()=>{
+    if(!ppeData.length)return null;
+    return ppeData.reduce((acc,e)=>({
+      totalHours:acc.totalHours+e.totalHours,jobHours:acc.jobHours+e.jobHours,
+      vacation:acc.vacation+e.vacation,sick:acc.sick+e.sick,holiday:acc.holiday+e.holiday,
+      otherNonWork:acc.otherNonWork+e.otherNonWork,regular:acc.regular+e.regular,overtime:acc.overtime+e.overtime,checkFig:acc.checkFig+e.checkFig
+    }),{totalHours:0,jobHours:0,vacation:0,sick:0,holiday:0,otherNonWork:0,regular:0,overtime:0,checkFig:0});
+  },[ppeData]);
+
+  const buildSummary=(data,key,extraKey)=>{
+    const map={};
+    data.forEach(e=>{const k=e[key];if(!map[k])map[k]={[key]:k,extra:e[extraKey],totalHours:0,others:new Set(),entries:0};map[k].totalHours+=e.hours;map[k].others.add(key==="jobNumber"?e.employee:e.jobNumber);map[k].entries+=1});
+    return Object.values(map).map(j=>({...j,othersCount:j.others.size})).sort((a,b)=>b.totalHours-a.totalHours);
+  };
+
+  const jobSummary=useMemo(()=>buildSummary(rptFiltered,"jobNumber","employee"),[rptFiltered]);
+  const employeeSummary=useMemo(()=>buildSummary(rptFiltered,"employee","department"),[rptFiltered]);
+
+  const totalHours=entries.reduce((s,e)=>s+e.hours,0);
+  const rptTotalHours=rptFiltered.reduce((s,e)=>s+e.hours,0);
+  const uniqueJobs=new Set(entries.map(e=>e.jobNumber)).size;
+  const uniqueEmployees=new Set(entries.map(e=>e.employee)).size;
+
+  const toggleSort=(f)=>{if(sortField===f)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortField(f);setSortDir("asc")}};
+  const SortIcon=({field})=>{if(sortField!==field)return<span style={{opacity:0.3,marginLeft:4,fontSize:10}}>&#9650;&#9660;</span>;return<span style={{marginLeft:4,fontSize:10}}>{sortDir==="asc"?"▲":"▼"}</span>};
+
+  const S={
+    input:{width:"100%",padding:"10px 12px",border:"2px solid #2a2a2a",background:"#fafafa",fontSize:14,fontFamily:"'JetBrains Mono',monospace",outline:"none",borderRadius:0},
+    label:{display:"block",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#666",marginBottom:5,fontFamily:"'JetBrains Mono',monospace"},
+    btnP:{padding:"12px 28px",background:"#1a1a1a",color:"#fff",border:"none",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.05em"},
+    btnS:{padding:"12px 28px",background:"#fff",color:"#1a1a1a",border:"2px solid #1a1a1a",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.05em"},
+    btnSm:{padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.05em",border:"2px solid #1a1a1a"},
+    card:{background:"#fff",border:"2px solid #1a1a1a",padding:24},
+    tag:{display:"inline-block",background:"#f0ede6",padding:"2px 8px",fontSize:11,fontWeight:600},
+  };
+  const selS={...S.input,cursor:"pointer",appearance:"none",backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"};
+  const tab=(a)=>({padding:"12px 20px",background:a?"#1a1a1a":"transparent",color:a?"#fff":"#1a1a1a",border:"2px solid #1a1a1a",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.05em",marginRight:-2});
+  const hasRF=rptFilterJob||rptFilterEmployee||rptFilterDateFrom||rptFilterDateTo;
+
+  const thStyle={padding:"10px 12px",textAlign:"right",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"};
+  const tdStyle={padding:"10px 12px",textAlign:"right",fontVariantNumeric:"tabular-nums",fontSize:13};
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f0ede6",fontFamily:"'JetBrains Mono',monospace"}}>
+      {toast&&<div style={{position:"fixed",top:20,right:20,background:"#1a1a1a",color:"#fff",padding:"12px 24px",fontSize:13,fontWeight:600,zIndex:3000,animation:"fadeIn 0.2s ease"}}>{toast}</div>}
+
+      {showAddEmployee&&<Modal title="ADD NEW EMPLOYEE" onClose={()=>setShowAddEmployee(false)}>
+        <label style={S.label}>Employee Name</label>
+        <input type="text" placeholder="e.g. John Smith" value={newEmployeeName} onChange={e=>setNewEmployeeName(e.target.value)} style={{...S.input,marginBottom:20}} onKeyDown={e=>e.key==="Enter"&&handleAddEmployee()} autoFocus/>
+        <div style={{display:"flex",gap:12}}><button style={S.btnP} onClick={handleAddEmployee}>ADD EMPLOYEE</button><button style={S.btnS} onClick={()=>setShowAddEmployee(false)}>CANCEL</button></div>
+      </Modal>}
+
+      {showAddJob&&<Modal title="ADD NEW JOB" onClose={()=>setShowAddJob(false)}>
+        <label style={S.label}>Job Number</label>
+        <input type="text" placeholder="e.g. 8400" value={newJobNumber} onChange={e=>setNewJobNumber(e.target.value)} style={{...S.input,marginBottom:20}} onKeyDown={e=>e.key==="Enter"&&handleAddJob()} autoFocus/>
+        <div style={{display:"flex",gap:12}}><button style={S.btnP} onClick={handleAddJob}>ADD JOB</button><button style={S.btnS} onClick={()=>setShowAddJob(false)}>CANCEL</button></div>
+      </Modal>}
+
+      {confirmDelete!==null&&<Modal title="CONFIRM DELETE" onClose={()=>setConfirmDelete(null)}>
+        <p style={{fontSize:13,color:"#666",marginBottom:20,lineHeight:1.6}}>Are you sure you want to delete this entry? This cannot be undone.</p>
+        <div style={{display:"flex",gap:12}}><button style={{...S.btnP,background:"#c00"}} onClick={()=>handleDelete(confirmDelete)}>DELETE</button><button style={S.btnS} onClick={()=>setConfirmDelete(null)}>CANCEL</button></div>
+      </Modal>}
+
+      {showManage&&<Modal title="MANAGE LISTS" onClose={()=>setShowManage(false)}>
+        <div style={{marginBottom:20}}>
+          <div style={{...S.label,marginBottom:10}}>Employees ({employees.length})</div>
+          <div style={{maxHeight:180,overflowY:"auto",marginBottom:12,border:"1px solid #eee",padding:employees.length?8:16}}>
+            {employees.length===0&&<div style={{fontSize:12,color:"#999",textAlign:"center"}}>No employees yet.</div>}
+            {employees.map(emp=><div key={emp} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",fontSize:13}}>
+              <span>{emp}</span><button onClick={()=>handleRemoveEmployee(emp)} style={{background:"none",border:"none",color:"#c00",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>REMOVE</button>
+            </div>)}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <input type="text" placeholder="New employee..." value={newEmployeeName} onChange={e=>setNewEmployeeName(e.target.value)} style={{...S.input,padding:"6px 10px",fontSize:12}} onKeyDown={e=>e.key==="Enter"&&handleAddEmployee()}/>
+            <button style={{...S.btnSm,background:"#1a1a1a",color:"#fff",flexShrink:0}} onClick={handleAddEmployee}>+ ADD</button>
+          </div>
+        </div>
+        <div>
+          <div style={{...S.label,marginBottom:10}}>Job Numbers ({jobs.length})</div>
+          <div style={{maxHeight:180,overflowY:"auto",marginBottom:12,border:"1px solid #eee",padding:8,display:"flex",flexWrap:"wrap",gap:6}}>
+            {jobs.map(job=><span key={job} style={{...S.tag,display:"flex",alignItems:"center",gap:6}}>{job}<button onClick={()=>handleRemoveJob(job)} style={{background:"none",border:"none",color:"#c00",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"inherit",lineHeight:1}}>&times;</button></span>)}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <input type="text" placeholder="New job #..." value={newJobNumber} onChange={e=>setNewJobNumber(e.target.value)} style={{...S.input,padding:"6px 10px",fontSize:12}} onKeyDown={e=>e.key==="Enter"&&handleAddJob()}/>
+            <button style={{...S.btnSm,background:"#1a1a1a",color:"#fff",flexShrink:0}} onClick={handleAddJob}>+ ADD</button>
+          </div>
+        </div>
+        <div style={{marginTop:24,paddingTop:16,borderTop:"1px solid #eee"}}>
+          <button style={{...S.btnS,padding:"8px 16px",fontSize:11,color:"#c00",borderColor:"#c00"}} onClick={()=>{if(confirm("This will erase ALL data and restore to the original sample data. Are you sure?")){setEntries(DEF_ENTRIES);setNextId(156);setEmployees(DEF_EMPLOYEES);setJobs(DEF_JOBS);setShowManage(false);showToast("Data reset to defaults")}}}>RESET ALL DATA</button>
+        </div>
+      </Modal>}
+
+      <div style={{maxWidth:1280,margin:"0 auto",padding:"32px 24px"}}>
+        {/* Header */}
+        <div className="header-row" style={{marginBottom:32,display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.2em",textTransform:"uppercase",color:"#999",marginBottom:6}}>ADM</div>
+            <h1 style={{fontSize:28,fontWeight:800,color:"#1a1a1a",margin:0,letterSpacing:"-0.02em"}}>JOB TIME TRACKER</h1>
+            <div style={{fontSize:12,color:"#888",marginTop:4}}>Track hours against jobs · Data saves automatically in your browser</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+            <div className="tabs" style={{display:"flex",flexWrap:"wrap"}}>
+              <button style={tab(view==="entry")} onClick={()=>setView("entry")}>+ LOG TIME</button>
+              <button style={tab(view==="log")} onClick={()=>setView("log")}>ENTRIES</button>
+              <button style={tab(view==="reports")} onClick={()=>setView("reports")}>REPORTS</button>
+              <button style={tab(view==="payroll")} onClick={()=>setView("payroll")}>PAY PERIOD</button>
+            </div>
+            <button onClick={()=>setShowManage(true)} style={{background:"none",border:"none",fontSize:11,color:"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:600,textDecoration:"underline"}}>Manage Employees &amp; Jobs</button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid-4" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:0,marginBottom:32,border:"2px solid #1a1a1a",background:"#fff"}}>
+          {[[totalHours.toFixed(1),"Total Hours"],[entries.length,"Entries"],[uniqueJobs,"Active Jobs"],[uniqueEmployees,"Employees"]].map(([v,l],i)=>(
+            <div key={l} style={{textAlign:"center",padding:"20px 16px",borderLeft:i>0?"2px solid #1a1a1a":"none"}}>
+              <div style={{fontSize:32,fontWeight:800,lineHeight:1}}>{v}</div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#888",marginTop:6}}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ══ ENTRY ══ */}
+        {view==="entry"&&(
+          <div style={S.card}>
+            <div style={{fontSize:14,fontWeight:700,letterSpacing:"0.05em",marginBottom:24,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+              <span>{editId!==null?"✏️ EDIT ENTRY":"LOG TIME"}</span>
+              {editId!==null&&<button style={{...S.btnSm,background:"#fff",color:"#1a1a1a"}} onClick={()=>{setEditId(null);setCustomTask(false);setForm({date:today(),employee:"",department:"",jobNumber:"",hours:"",task:"",notes:""})}}>CANCEL EDIT</button>}
+            </div>
+            {editId!==null&&<div style={{background:"#fffde7",border:"1px solid #f5e6a3",padding:"10px 14px",marginBottom:20,fontSize:12,color:"#8a7400"}}>Editing an existing entry. Make changes and click <strong>UPDATE ENTRY</strong>.</div>}
+            <div className="grid-3" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,marginBottom:20}}>
+              <div><label style={S.label}>Date *</label><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={S.input}/></div>
+              <div><label style={S.label}>Employee *</label>
+                <select value={form.employee} onChange={e=>{if(e.target.value==="__ADD__")setShowAddEmployee(true);else setForm(f=>({...f,employee:e.target.value}))}} style={selS}>
+                  <option value="">Select employee...</option>{employees.map(emp=><option key={emp} value={emp}>{emp}</option>)}<option value="__ADD__">＋ Add New Employee...</option>
+                </select>
+              </div>
+              <div><label style={S.label}>Department</label>
+                <select value={form.department} onChange={e=>setForm(f=>({...f,department:e.target.value}))} style={selS}>
+                  <option value="">Select department...</option>{departments.map(d=><option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid-3" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,marginBottom:20}}>
+              <div><label style={S.label}>Job # *</label>
+                <select value={form.jobNumber} onChange={e=>{if(e.target.value==="__ADD__")setShowAddJob(true);else setForm(f=>({...f,jobNumber:e.target.value}))}} style={selS}>
+                  <option value="">Select job...</option>{jobs.map(j=><option key={j} value={j}>{j}</option>)}<option value="__ADD__">＋ Add New Job...</option>
+                </select>
+              </div>
+              <div><label style={S.label}>Hours *</label><input type="number" step="0.01" min="0" max="24" placeholder="e.g. 8.5" value={form.hours} onChange={e=>setForm(f=>({...f,hours:e.target.value}))} style={S.input}/></div>
+              <div><label style={S.label}>Task / Operation</label>
+                {!customTask?<select value={form.task} onChange={e=>{if(e.target.value==="__CUSTOM__"){setCustomTask(true);setForm(f=>({...f,task:""}))}else setForm(f=>({...f,task:e.target.value}))}} style={selS}>
+                  <option value="">Select task...</option>{TASKS.map(t=><option key={t} value={t}>{t}</option>)}<option value="__CUSTOM__">✎ Type custom...</option>
+                </select>:
+                <div style={{display:"flex",gap:6}}>
+                  <input type="text" placeholder="Custom task..." value={form.task} onChange={e=>setForm(f=>({...f,task:e.target.value}))} style={S.input} autoFocus/>
+                  <button onClick={()=>{setCustomTask(false);setForm(f=>({...f,task:""}))}} style={{...S.btnSm,flexShrink:0,background:"#fff",color:"#1a1a1a",fontSize:10}}>LIST</button>
+                </div>}
+              </div>
+            </div>
+            <div style={{marginBottom:24}}><label style={S.label}>Notes</label><input type="text" placeholder="Optional notes..." value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} style={S.input}/></div>
+            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+              <button style={{...S.btnP,background:editId!==null?"#1565c0":"#1a1a1a"}} onClick={handleSubmit}>{editId!==null?"UPDATE ENTRY":"ADD ENTRY"}</button>
+              <button style={S.btnS} onClick={()=>{setEditId(null);setCustomTask(false);setForm({date:today(),employee:"",department:"",jobNumber:"",hours:"",task:"",notes:""})}}>CLEAR</button>
+            </div>
+            <div style={{marginTop:16,fontSize:11,color:"#999",lineHeight:1.8}}>
+              TIP: Employee, date, department, and task stay selected after adding — log multiple jobs quickly.<br/>
+              Use <strong>＋ Add New Employee</strong> or <strong>＋ Add New Job</strong> in dropdowns to create new options on the fly.
+            </div>
+          </div>
+        )}
+
+        {/* ══ LOG ══ */}
+        {view==="log"&&(
+          <div>
+            <div className="filters" style={{...S.card,marginBottom:2,display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>Job #</label><select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{...selS,padding:"8px 10px"}}><option value="">All</option>{jobs.map(j=><option key={j} value={j}>{j}</option>)}</select></div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>Employee</label><select value={filterEmployee} onChange={e=>setFilterEmployee(e.target.value)} style={{...selS,padding:"8px 10px"}}><option value="">All</option>{employees.map(e=><option key={e} value={e}>{e}</option>)}</select></div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>Dept</label><select value={filterDept} onChange={e=>setFilterDept(e.target.value)} style={{...selS,padding:"8px 10px"}}><option value="">All</option>{departments.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>From</label><input type="date" value={filterDateFrom} onChange={e=>setFilterDateFrom(e.target.value)} style={{...S.input,padding:"8px 10px"}}/></div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>To</label><input type="date" value={filterDateTo} onChange={e=>setFilterDateTo(e.target.value)} style={{...S.input,padding:"8px 10px"}}/></div>
+              <div style={{display:"flex",gap:6}}>
+                <button style={{...S.btnSm,background:"#fff",color:"#1a1a1a"}} onClick={()=>{setFilterJob("");setFilterEmployee("");setFilterDept("");setFilterDateFrom("");setFilterDateTo("")}}>CLEAR</button>
+                <button style={{...S.btnSm,background:"#1a1a1a",color:"#fff"}} onClick={()=>exportCSV(filtered,`adm-entries-${today()}.csv`)}>EXPORT</button>
+              </div>
+            </div>
+            <div style={{...S.card,padding:0,overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"#1a1a1a",color:"#fff"}}>
+                  {[["date","Date"],["employee","Employee"],["department","Dept"],["jobNumber","Job #"],["hours","Hours"],["task","Task"],["notes","Notes"]].map(([f,l])=>
+                    <th key={f} onClick={()=>toggleSort(f)} style={{padding:"12px 14px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap",userSelect:"none"}}>{l}<SortIcon field={f}/></th>
+                  )}
+                  <th style={{padding:"12px 14px",width:110,fontSize:10,fontWeight:700,letterSpacing:"0.1em"}}>ACTIONS</th>
+                </tr></thead>
+                <tbody>
+                  {filtered.length===0&&<tr><td colSpan={8} style={{padding:40,textAlign:"center",color:"#999"}}>{entries.length===0?"No entries yet — go to Log Time to add your first entry.":"No entries match filters."}</td></tr>}
+                  {filtered.map((e,i)=><tr key={e.id} style={{background:i%2===0?"#fff":"#fafaf7",borderBottom:"1px solid #eee"}}>
+                    <td style={{padding:"10px 14px",fontVariantNumeric:"tabular-nums"}}>{e.date}</td>
+                    <td style={{padding:"10px 14px",fontWeight:500}}>{e.employee}</td>
+                    <td style={{padding:"10px 14px"}}><span style={S.tag}>{e.department||"—"}</span></td>
+                    <td style={{padding:"10px 14px",fontWeight:700}}>{e.jobNumber}</td>
+                    <td style={{padding:"10px 14px",fontVariantNumeric:"tabular-nums",fontWeight:600}}>{e.hours.toFixed(2)}</td>
+                    <td style={{padding:"10px 14px",color:"#666"}}>{e.task||"—"}</td>
+                    <td style={{padding:"10px 14px",color:"#999",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.notes||"—"}</td>
+                    <td style={{padding:"10px 14px",whiteSpace:"nowrap"}}>
+                      <button onClick={()=>handleEdit(e)} style={{...S.btnSm,background:"#1a1a1a",color:"#fff",padding:"4px 10px",fontSize:10,marginRight:4}}>EDIT</button>
+                      <button onClick={()=>setConfirmDelete(e.id)} style={{...S.btnSm,background:"#fff",color:"#c00",borderColor:"#c00",padding:"4px 10px",fontSize:10}}>DEL</button>
+                    </td>
+                  </tr>)}
+                </tbody>
+              </table>
+            </div>
+            <div style={{marginTop:8,fontSize:11,color:"#999",textAlign:"right"}}>Showing {filtered.length} of {entries.length} entries · {filtered.reduce((s,e)=>s+e.hours,0).toFixed(1)} hours</div>
+          </div>
+        )}
+
+        {/* ══ REPORTS ══ */}
+        {view==="reports"&&(
+          <div>
+            <div className="filters" style={{...S.card,marginBottom:24,display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
+              <div style={{fontSize:13,fontWeight:700,letterSpacing:"0.05em",flexBasis:"100%",marginBottom:4}}>REPORT FILTERS</div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>Job #</label><select value={rptFilterJob} onChange={e=>setRptFilterJob(e.target.value)} style={{...selS,padding:"8px 10px"}}><option value="">All</option>{jobs.map(j=><option key={j} value={j}>{j}</option>)}</select></div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>Employee</label><select value={rptFilterEmployee} onChange={e=>setRptFilterEmployee(e.target.value)} style={{...selS,padding:"8px 10px"}}><option value="">All</option>{employees.map(e=><option key={e} value={e}>{e}</option>)}</select></div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>From</label><input type="date" value={rptFilterDateFrom} onChange={e=>setRptFilterDateFrom(e.target.value)} style={{...S.input,padding:"8px 10px"}}/></div>
+              <div style={{flex:1,minWidth:110}}><label style={S.label}>To</label><input type="date" value={rptFilterDateTo} onChange={e=>setRptFilterDateTo(e.target.value)} style={{...S.input,padding:"8px 10px"}}/></div>
+              <div style={{display:"flex",gap:6}}>
+                <button style={{...S.btnSm,background:"#fff",color:"#1a1a1a"}} onClick={()=>{setRptFilterJob("");setRptFilterEmployee("");setRptFilterDateFrom("");setRptFilterDateTo("")}}>CLEAR</button>
+                <button style={{...S.btnSm,background:"#1a1a1a",color:"#fff"}} onClick={()=>exportCSV(rptFiltered,`adm-report-${today()}.csv`)}>EXPORT</button>
+              </div>
+            </div>
+            {hasRF&&<div style={{marginBottom:16,fontSize:12,color:"#666",padding:"8px 12px",background:"#fff",border:"1px solid #ddd"}}>
+              Showing <strong>{rptFiltered.length}</strong> entries · <strong>{rptTotalHours.toFixed(1)}</strong> hours
+              {rptFilterDateFrom&&<span> · From: {rptFilterDateFrom}</span>}{rptFilterDateTo&&<span> · To: {rptFilterDateTo}</span>}
+              {rptFilterJob&&<span> · Job: {rptFilterJob}</span>}{rptFilterEmployee&&<span> · Employee: {rptFilterEmployee}</span>}
+            </div>}
+            <div className="grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
+              <div style={S.card}>
+                <div style={{fontSize:13,fontWeight:700,letterSpacing:"0.05em",marginBottom:16}}>HOURS BY JOB</div>
+                {jobSummary.length===0?<div style={{padding:20,textAlign:"center",color:"#999",fontSize:12}}>No data.</div>:
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <thead><tr style={{borderBottom:"2px solid #1a1a1a"}}>{["Job #","Hours","People","Entries"].map((h,i)=><th key={h} style={{padding:"8px 0",textAlign:i===0?"left":"right",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                  <tbody>{jobSummary.map(j=>{const max=jobSummary[0]?.totalHours||1;return<tr key={j.jobNumber} style={{borderBottom:"1px solid #eee"}}>
+                    <td style={{padding:"10px 0",fontWeight:700}}>{j.jobNumber}<div style={{marginTop:4,height:4,background:"#f0ede6"}}><div style={{height:4,background:"#1a1a1a",width:`${(j.totalHours/max)*100}%`}}/></div></td>
+                    <td style={{padding:"10px 0",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:600}}>{j.totalHours.toFixed(1)}</td>
+                    <td style={{padding:"10px 0",textAlign:"right",color:"#666"}}>{j.othersCount}</td>
+                    <td style={{padding:"10px 0",textAlign:"right",color:"#666"}}>{j.entries}</td>
+                  </tr>})}</tbody>
+                </table>}
+              </div>
+              <div style={S.card}>
+                <div style={{fontSize:13,fontWeight:700,letterSpacing:"0.05em",marginBottom:16}}>HOURS BY EMPLOYEE</div>
+                {employeeSummary.length===0?<div style={{padding:20,textAlign:"center",color:"#999",fontSize:12}}>No data.</div>:
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <thead><tr style={{borderBottom:"2px solid #1a1a1a"}}>{["Employee","Dept","Hours","Jobs"].map((h,i)=><th key={h} style={{padding:"8px 0",textAlign:i<2?"left":"right",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                  <tbody>{employeeSummary.map(e=>{const max=employeeSummary[0]?.totalHours||1;return<tr key={e.employee} style={{borderBottom:"1px solid #eee"}}>
+                    <td style={{padding:"10px 0"}}><span style={{fontWeight:600}}>{e.employee}</span><div style={{marginTop:4,height:4,background:"#f0ede6"}}><div style={{height:4,background:"#1a1a1a",width:`${(e.totalHours/max)*100}%`}}/></div></td>
+                    <td style={{padding:"10px 0"}}><span style={S.tag}>{e.extra||"—"}</span></td>
+                    <td style={{padding:"10px 0",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:600}}>{e.totalHours.toFixed(1)}</td>
+                    <td style={{padding:"10px 0",textAlign:"right",color:"#666"}}>{e.othersCount}</td>
+                  </tr>})}</tbody>
+                </table>}
+              </div>
+              <div style={{...S.card,gridColumn:"1 / -1"}}>
+                <div style={{fontSize:13,fontWeight:700,letterSpacing:"0.05em",marginBottom:16}}>DAILY HOURS BREAKDOWN</div>
+                {rptFiltered.length===0?<div style={{padding:20,textAlign:"center",color:"#999",fontSize:12}}>No data.</div>:(()=>{
+                  const byDate={};rptFiltered.forEach(e=>{if(!byDate[e.date])byDate[e.date]={total:0,jobs:{}};byDate[e.date].total+=e.hours;if(!byDate[e.date].jobs[e.jobNumber])byDate[e.date].jobs[e.jobNumber]=0;byDate[e.date].jobs[e.jobNumber]+=e.hours});
+                  const dates=Object.keys(byDate).sort().reverse();const maxDay=Math.max(...Object.values(byDate).map(d=>d.total),1);
+                  const colors=["#1a1a1a","#555","#888","#aaa","#ccc","#ddd"];
+                  return<div style={{display:"flex",flexDirection:"column",gap:8}}>{dates.map(date=>{const day=byDate[date];const je=Object.entries(day.jobs).sort((a,b)=>b[1]-a[1]);
+                    return<div key={date} style={{display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{width:90,fontSize:12,fontVariantNumeric:"tabular-nums",flexShrink:0,color:"#666"}}>{date}</div>
+                      <div style={{flex:1,display:"flex",height:28,background:"#f0ede6"}}>{je.map(([job,hrs],idx)=><div key={job} title={`Job ${job}: ${hrs.toFixed(1)}h`} style={{width:`${(hrs/maxDay)*100}%`,background:colors[idx%colors.length],height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:idx<2?"#fff":"#333",fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",minWidth:hrs/maxDay>0.06?"auto":0}}>{hrs/maxDay>0.08?job:""}</div>)}</div>
+                      <div style={{width:60,fontSize:12,fontVariantNumeric:"tabular-nums",textAlign:"right",fontWeight:600,flexShrink:0}}>{day.total.toFixed(1)}h</div>
+                    </div>})}</div>;
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PAY PERIOD RECONCILIATION ══ */}
+        {view==="payroll"&&(
+          <div>
+            <div style={S.card}>
+              <div style={{fontSize:14,fontWeight:700,letterSpacing:"0.05em",marginBottom:8}}>PAY PERIOD RECONCILIATION</div>
+              <div style={{fontSize:12,color:"#888",marginBottom:20,lineHeight:1.6}}>
+                Select a pay period date range to see each employee's hours broken down by Regular, Overtime, Vacation, Sick, and Holiday.
+                Compare this against PayCom to verify totals match. Overtime is calculated on work hours exceeding the threshold below (Vacation/Sick/Holiday count toward regular, not OT).
+              </div>
+
+              <div className="grid-3" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:20,marginBottom:24}}>
+                <div><label style={S.label}>Period Start *</label><input type="date" value={ppeDateFrom} onChange={e=>setPpeDateFrom(e.target.value)} style={S.input}/></div>
+                <div><label style={S.label}>Period End *</label><input type="date" value={ppeDateTo} onChange={e=>setPpeDateTo(e.target.value)} style={S.input}/></div>
+                <div><label style={S.label}>OT Threshold (hours)</label><input type="number" value={ppeOtThreshold} onChange={e=>setPpeOtThreshold(e.target.value)} style={S.input} min="0" step="1"/></div>
+              </div>
+
+              {(!ppeDateFrom||!ppeDateTo)?
+                <div style={{padding:40,textAlign:"center",color:"#999",fontSize:13,border:"1px dashed #ccc"}}>Select a date range above to generate the pay period summary.</div>
+              :ppeData.length===0?
+                <div style={{padding:40,textAlign:"center",color:"#999",fontSize:13,border:"1px dashed #ccc"}}>No entries found for {ppeDateFrom} to {ppeDateTo}.</div>
+              :(
+                <div>
+                  {/* Summary stats */}
+                  <div className="grid-4" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:0,marginBottom:20,border:"2px solid #1a1a1a",background:"#fafaf7"}}>
+                    {[
+                      [ppeTotals.totalHours.toFixed(1),"Total Hours"],
+                      [ppeTotals.regular.toFixed(1),"Regular"],
+                      [ppeTotals.overtime.toFixed(1),"Overtime"],
+                      [(ppeTotals.vacation+ppeTotals.sick+ppeTotals.holiday).toFixed(1),"Vac/Sick/Hol"]
+                    ].map(([v,l],i)=>(
+                      <div key={l} style={{textAlign:"center",padding:"16px 12px",borderLeft:i>0?"2px solid #1a1a1a":"none"}}>
+                        <div style={{fontSize:24,fontWeight:800,lineHeight:1,color:l==="Overtime"&&parseFloat(v)>0?"#c00":"#1a1a1a"}}>{v}</div>
+                        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#888",marginTop:4}}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Detail table */}
+                  <div style={{overflowX:"auto",border:"2px solid #1a1a1a"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                      <thead>
+                        <tr style={{background:"#1a1a1a",color:"#fff"}}>
+                          <th style={{...thStyle,textAlign:"left",position:"sticky",left:0,background:"#1a1a1a",zIndex:1}}>Employee</th>
+                          <th style={{...thStyle,textAlign:"left"}}>Dept</th>
+                          <th style={thStyle}>Total Hrs</th>
+                          <th style={thStyle}>Job Hrs</th>
+                          <th style={{...thStyle,color:"#8ecae6"}}>Vacation</th>
+                          <th style={{...thStyle,color:"#ffb703"}}>Sick</th>
+                          <th style={{...thStyle,color:"#90be6d"}}>Holiday</th>
+                          <th style={{...thStyle,background:"#2a2a2a"}}>Regular</th>
+                          <th style={{...thStyle,background:"#2a2a2a",color:"#ff6b6b"}}>Overtime</th>
+                          <th style={{...thStyle,background:"#333"}}>Check</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ppeData.map((e,i)=>(
+                          <tr key={e.employee} style={{background:i%2===0?"#fff":"#fafaf7",borderBottom:"1px solid #eee"}}>
+                            <td style={{padding:"10px 12px",fontWeight:600,whiteSpace:"nowrap",position:"sticky",left:0,background:i%2===0?"#fff":"#fafaf7",zIndex:1}}>{e.employee}</td>
+                            <td style={{padding:"10px 12px"}}><span style={S.tag}>{e.department||"—"}</span></td>
+                            <td style={{...tdStyle,fontWeight:700}}>{e.totalHours.toFixed(2)}</td>
+                            <td style={tdStyle}>{e.jobHours.toFixed(2)}</td>
+                            <td style={{...tdStyle,color:e.vacation>0?"#0077b6":"#ccc"}}>{e.vacation.toFixed(2)}</td>
+                            <td style={{...tdStyle,color:e.sick>0?"#e85d04":"#ccc"}}>{e.sick.toFixed(2)}</td>
+                            <td style={{...tdStyle,color:e.holiday>0?"#588157":"#ccc"}}>{e.holiday.toFixed(2)}</td>
+                            <td style={{...tdStyle,fontWeight:700,background:i%2===0?"#f8f8f5":"#f3f3f0"}}>{e.regular.toFixed(2)}</td>
+                            <td style={{...tdStyle,fontWeight:700,color:e.overtime>0?"#c00":"#ccc",background:i%2===0?"#f8f8f5":"#f3f3f0"}}>{e.overtime.toFixed(2)}</td>
+                            <td style={{...tdStyle,color:Math.abs(e.checkFig)<0.01?"#2d6a4f":"#c00",fontWeight:600,background:i%2===0?"#f5f5f2":"#f0f0ed"}}>{Math.abs(e.checkFig)<0.01?"✓":e.checkFig.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        {/* Totals row */}
+                        <tr style={{background:"#1a1a1a",color:"#fff",fontWeight:700}}>
+                          <td style={{padding:"12px 12px",position:"sticky",left:0,background:"#1a1a1a",zIndex:1}}>TOTALS</td>
+                          <td style={{padding:"12px 12px"}}></td>
+                          <td style={{...tdStyle,color:"#fff"}}>{ppeTotals.totalHours.toFixed(2)}</td>
+                          <td style={{...tdStyle,color:"#fff"}}>{ppeTotals.jobHours.toFixed(2)}</td>
+                          <td style={{...tdStyle,color:"#8ecae6"}}>{ppeTotals.vacation.toFixed(2)}</td>
+                          <td style={{...tdStyle,color:"#ffb703"}}>{ppeTotals.sick.toFixed(2)}</td>
+                          <td style={{...tdStyle,color:"#90be6d"}}>{ppeTotals.holiday.toFixed(2)}</td>
+                          <td style={{...tdStyle,color:"#fff"}}>{ppeTotals.regular.toFixed(2)}</td>
+                          <td style={{...tdStyle,color:"#ff6b6b"}}>{ppeTotals.overtime.toFixed(2)}</td>
+                          <td style={{...tdStyle,color:Math.abs(ppeTotals.checkFig)<0.01?"#90be6d":"#ff6b6b"}}>{Math.abs(ppeTotals.checkFig)<0.01?"✓":ppeTotals.checkFig.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{marginTop:16,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                    <div style={{fontSize:11,color:"#999",lineHeight:1.6}}>
+                      <strong>How it works:</strong> Work hours over {ppeOtThreshold}h = Overtime. Vacation/Sick/Holiday are added to Regular (not OT).<br/>
+                      <strong>Check column:</strong> ✓ means Reg + OT = Total Hours. A number means there's a discrepancy to investigate.
+                    </div>
+                    <button style={{...S.btnSm,background:"#1a1a1a",color:"#fff"}} onClick={()=>exportPayrollCSV(ppeData,`adm-payperiod-${ppeDateFrom}-to-${ppeDateTo}.csv`)}>EXPORT PAYROLL CSV</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div style={{marginTop:40,paddingTop:16,borderTop:"1px solid #ccc",fontSize:11,color:"#999",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+          <span>ADM Job Tracker · v2.1</span>
+          <span>Data saves automatically · {entries.length} entries stored</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
